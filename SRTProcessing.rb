@@ -1,6 +1,7 @@
+#encoding: utf-8
 require "pry"
 require "time"
-
+require "pp"
 
 class SRTProcessing
 	def initialize(filename)
@@ -69,6 +70,10 @@ class Entry
 	def get_content
 		@content
 	end
+
+	def get_start_time
+		@start_time
+	end
 end
 
 
@@ -83,25 +88,45 @@ class TimeShifter
 end
 
 class SpellChecker
-	def initialize (entries, filename)
+	def initialize(entries, typos_filename)
 		@entries = entries
-		@filename = filename
+		@typos_filename = typos_filename
+		@typos = {}
 	end
 
     def create_a_checklist
-    	file = IO.read(@filename)
-    	entries.each do |entry|
-    		entry.get_content.gsub(/[\r]/,' ').split(" ").each do
-       			if #file.include? "#{entry.content.}"
+    	valid_words = IO.read(@typos_filename)
+    	@entries.each do |entry|
+    		entry.get_content.gsub(/[\r.:,?!&'-]/,' ').split(" ").each do |word|
+    			if !(valid_words.include? word.downcase)
+    				add_new_typo(word, entry.get_start_time())
+    			end
        		end
        	end
-       	file << entriescontent.spilt(" ")
+       	print_typos_found()
     end
+
+
+    private
+    def add_new_typo(word, start_time)
+    	@typos[word] ||= []
+    	@typos[word] << start_time
+    end
+
+    def print_typos_found
+    	typos_str = ""
+    	
+    	@typos.each do |actual_word, time|
+    		typos_str += actual_word + ": " + time.to_s + "\n"
+    	end
+
+    	IO.write("potential_typos.txt", typos_str)
+    end
+
 end
 
-processor_instance = SRTProcessing.new("ShortExample.srt")
-processor_instance.shift_all(5000)
-processor_instance.shift_all(-2000)
-processor_instance.make_new_file("output.srt")
-
-Spellchecker.new(processor_instance.get_entries, "words.txt").create_a_checklist
+processor_instance = SRTProcessing.new("LongExample.srt")
+# processor_instance.shift_all(5000)
+# processor_instance.shift_all(-2000)
+# processor_instance.make_new_file("output.srt")
+SpellChecker.new(processor_instance.get_entries, "words.txt").create_a_checklist()
